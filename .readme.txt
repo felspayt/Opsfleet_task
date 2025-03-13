@@ -1,0 +1,86 @@
+# EKS Cluster with Karpenter - Terraform Deployment
+
+## Overview
+This Terraform configuration deploys an Amazon EKS cluster with Karpenter. It supports both x86 (amd64) and ARM (arm64) architectures and integrates with an existing VPC.
+
+## Prerequisites
+- Install [Terraform](https://www.terraform.io/downloads.html)
+- Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- Install [AWS CLI](https://aws.amazon.com/cli/)
+- Configure AWS credentials: `aws configure`
+
+## Deployment Steps
+
+### 1. Clone the Repository
+```sh
+git clone https://github.com/your-repo/eks-karpenter-terraform.git
+cd eks-karpenter-terraform
+```
+
+### 2. Initialize Terraform
+```sh
+terraform init
+```
+
+### 3. Plan and Apply the Deployment
+```sh
+terraform plan
+terraform apply -auto-approve
+```
+
+### 4. Configure kubectl for EKS
+After the EKS cluster is created, configure `kubectl` to communicate with it:
+```sh
+aws eks update-kubeconfig --region us-east-1 --name custom-test-eks
+```
+This command sets up the local Kubernetes configuration so you can interact with the cluster using `kubectl`.
+
+### 5. Verify Karpenter Installation
+Ensure Karpenter is running by checking the deployed pods in the `karpenter` namespace:
+```sh
+kubectl get pods -n karpenter
+```
+If Karpenter is installed correctly, you should see running pods in the output.
+
+## Deploying a Sample Workload
+To schedule pods on different architectures, create a deployment with node selectors:
+
+1. Create a YAML file (`sample-app.yaml`) for the deployment:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64  # Change to amd64 for x86
+      containers:
+      - name: sample-container
+        image: public.ecr.aws/nginx/nginx:latest
+```
+
+2. Apply the deployment to the cluster:
+```sh
+kubectl apply -f sample-app.yaml
+```
+
+3. Check if the pod is scheduled correctly:
+```sh
+kubectl get pods -o wide
+```
+You should see the pod running on a node matching the specified architecture.
+
+## Destroying the Infrastructure
+To remove all resources:
+```sh
+terraform destroy -auto-approve
+```
